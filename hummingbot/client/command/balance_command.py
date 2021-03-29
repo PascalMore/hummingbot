@@ -10,6 +10,7 @@ from hummingbot.client.config.config_helpers import (
 )
 from hummingbot.client.config.config_validators import validate_decimal, validate_exchange
 from hummingbot.market.celo.celo_cli import CeloCLI
+from hummingbot.core.utils.market_price import usd_value
 import pandas as pd
 from decimal import Decimal
 from typing import TYPE_CHECKING, Dict, Optional, List
@@ -49,9 +50,12 @@ class BalanceCommand:
                 amount = float(args[2])
                 if exchange not in config_var.value or config_var.value[exchange] is None:
                     config_var.value[exchange] = {}
-                config_var.value[exchange][asset] = amount
-
-                self._notify(f"Limit for {asset} on {exchange} exchange set to {amount}")
+                if amount < 0 and asset in config_var.value[exchange].keys():
+                    config_var.value[exchange].pop(asset)
+                    self._notify(f"Limit for {asset} on {exchange} exchange removed.")
+                elif amount >= 0:
+                    config_var.value[exchange][asset] = amount
+                    self._notify(f"Limit for {asset} on {exchange} exchange set to {amount}")
                 save_to_yml(file_path, config_map)
 
             elif option == "paper":
@@ -74,19 +78,28 @@ class BalanceCommand:
     async def show_balances(self):
         self._notify("Updating balances, please wait...")
         all_ex_bals = await UserBalances.instance().all_balances_all_exchanges()
+        all_ex_avai_bals = UserBalances.instance().all_avai_balances_all_exchanges()
         all_ex_limits: Optional[Dict[str, Dict[str, str]]] = global_config_map["balance_asset_limit"].value
 
         if all_ex_limits is None:
             all_ex_limits = {}
 
+        exchanges_total = 0
+
         for exchange, bals in all_ex_bals.items():
             self._notify(f"\n{exchange}:")
-            df = await self.exchange_balances_df(bals, all_ex_limits.get(exchange, {}))
+            # df = await self.exchange_balances_df(bals, all_ex_limits.get(exchange, {}))
+            df, allocated_total = await self.exchange_balances_usd_df(bals, all_ex_avai_bals.get(exchange, {}))
             if df.empty:
                 self._notify("You have no balance on this exchange.")
             else:
                 lines = ["    " + line for line in df.to_string(index=False).split("\n")]
                 self._notify("\n".join(lines))
+                self._notify(f"\n  Total: $ {df['Total ($)'].sum():.0f}    "
+                             f"Allocated: {allocated_total / df['Total ($)'].sum():.2%}")
+                exchanges_total += df['Total ($)'].sum()
+
+        self._notify(f"\n\nExchanges Total: $ {exchanges_total:.0f}    ")
 
         celo_address = global_config_map["celo_address"].value
         if celo_address is not None:
@@ -102,9 +115,15 @@ class BalanceCommand:
 
         eth_address = global_config_map["ethereum_wallet"].value
         if eth_address is not None:
-            df = await self.ethereum_balances_df()
-            lines = ["    " + line for line in df.to_string(index=False).split("\n")]
+            eth_df = await self.ethereum_balances_df()
+            lines = ["    " + line for line in eth_df.to_string(index=False).split("\n")]
             self._notify("\nethereum:")
+            self._notify("\n".join(lines))
+
+            # XDAI balances
+            xdai_df = await self.xdai_balances_df()
+            lines = ["    " + line for line in xdai_df.to_string(index=False).split("\n")]
+            self._notify("\nxdai:")
             self._notify("\n".join(lines))
 
     async def exchange_balances_df(self,  # type: HummingbotApplication
@@ -122,6 +141,28 @@ class BalanceCommand:
         df = pd.DataFrame(data=rows, columns=["Asset", "Amount", "Limit"])
         df.sort_values(by=["Asset"], inplace=True)
         return df
+
+    async def exchange_balances_usd_df(self,  # type: HummingbotApplication
+                                       ex_balances: Dict[str, Decimal],
+                                       ex_avai_balances: Dict[str, Decimal]):
+        allocated_total = Decimal("0")
+        rows = []
+        for token, bal in ex_balances.items():
+            if bal == Decimal(0):
+                continue
+            avai = Decimal(ex_avai_balances.get(token.upper(), 0)) if ex_avai_balances is not None else Decimal(0)
+            allocated = f"{(bal - avai) / bal:.0%}"
+            usd = await usd_value(token, bal)
+            usd = 0 if usd is None else usd
+            allocated_total += await usd_value(token, (bal - avai))
+            rows.append({"Asset": token.upper(),
+                         "Total": round(bal, 4),
+                         "Total ($)": round(usd),
+                         "Allocated": allocated,
+                         })
+        df = pd.DataFrame(data=rows, columns=["Asset", "Total", "Total ($)", "Allocated"])
+        df.sort_values(by=["Asset"], inplace=True)
+        return df, allocated_total
 
     async def celo_balances_df(self,  # type: HummingbotApplication
                                ):
@@ -143,6 +184,16 @@ class BalanceCommand:
         else:
             eth_bal = UserBalances.ethereum_balance()
             rows.append({"Asset": "ETH", "Amount": round(eth_bal, 4)})
+        df = pd.DataFrame(data=rows, columns=["Asset", "Amount"])
+        df.sort_values(by=["Asset"], inplace=True)
+        return df
+
+    async def xdai_balances_df(self,  # type: HummingbotApplication
+                               ):
+        rows = []
+        bals = await UserBalances.xdai_balances()
+        for token, bal in bals.items():
+            rows.append({"Asset": token, "Amount": round(bal, 4)})
         df = pd.DataFrame(data=rows, columns=["Asset", "Amount"])
         df.sort_values(by=["Asset"], inplace=True)
         return df
