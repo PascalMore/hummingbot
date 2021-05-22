@@ -273,11 +273,11 @@ async def update_strategy_config_map_from_file(yml_path: str) -> str:
 
 async def load_yml_into_cm(yml_path: str, template_file_path: str, cm: Dict[str, ConfigVar]):
     try:
-        with open(yml_path) as stream:
+        with open(yml_path, "r", encoding='utf-8') as stream:
             data = yaml_parser.load(stream) or {}
             conf_version = data.get("template_version", 0)
 
-        with open(template_file_path, "r") as template_fd:
+        with open(template_file_path, "r", encoding='utf-8') as template_fd:
             template_data = yaml_parser.load(template_fd)
             template_version = template_data.get("template_version", 0)
 
@@ -344,7 +344,7 @@ def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
     Write current config saved a single config map into each a single yml file
     """
     try:
-        with open(yml_path) as stream:
+        with open(yml_path, "r", encoding='utf-8') as stream:
             data = yaml_parser.load(stream) or {}
             for key in cm:
                 cvar = cm.get(key)
@@ -356,7 +356,7 @@ def save_to_yml(yml_path: str, cm: Dict[str, ConfigVar]):
                     data[key] = float(cvar.value)
                 else:
                     data[key] = cvar.value
-            with open(yml_path, "w+") as outfile:
+            with open(yml_path, "w+", encoding='utf-8') as outfile:
                 yaml_parser.dump(data, outfile)
     except Exception as e:
         logging.getLogger().error("Error writing configs: %s" % (str(e),), exc_info=True)
