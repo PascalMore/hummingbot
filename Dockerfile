@@ -57,14 +57,14 @@ COPY --chown=hummingbot:hummingbot DATA_COLLECTION.md .
 RUN echo "source /home/hummingbot/miniconda3/etc/profile.d/conda.sh && conda activate $(head -1 setup/environment-linux.yml | cut -d' ' -f2)" >> ~/.bashrc
 
 # ./compile + cleanup build folder
-RUN /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 setup.py build_ext --inplace -j 8 && \
+RUN /home/hummingbot/miniconda3/envs/hummingbot/bin/python3 setup.py build_ext --inplace -j 8 && \
     rm -rf build/ && \
     find . -type f -name "*.cpp" -delete
 
 # Build final image using artifacts from builer
 FROM ubuntu:20.04 AS release
 # Dockerfile author / maintainer 
-LABEL maintainer="CoinAlpha, Inc. <dev@coinalpha.com>"
+LABEL maintainer="PascalMore <532484187@qq.com>"
 
 # Build arguments
 ARG BRANCH=""
@@ -100,6 +100,8 @@ VOLUME /conf /logs /data /certs /scripts
 
 # Pre-populate scripts/ volume with default scripts
 COPY --chown=hummingbot:hummingbot scripts/ scripts/
+# Pre-populate myq_conf volume with well-configured params
+COPY --chown=hummingbot:hummingbot myq_conf/ conf/
 
 # Install packages required in runtime
 RUN apt-get update && \
@@ -118,5 +120,5 @@ COPY docker/etc /etc
 
 # Setting bash as default shell because we have .bashrc with customized PATH (setting SHELL affects RUN, CMD and ENTRYPOINT, but not manual commands e.g. `docker run image COMMAND`!)
 SHELL [ "/bin/bash", "-lc" ]
-CMD /home/hummingbot/miniconda3/envs/$(head -1 setup/environment-linux.yml | cut -d' ' -f2)/bin/python3 bin/hummingbot_quickstart.py \
+CMD /home/hummingbot/miniconda3/envs/hummingbot/bin/python3 bin/hummingbot_quickstart.py \
     --auto-set-permissions $(id -nu):$(id -ng)

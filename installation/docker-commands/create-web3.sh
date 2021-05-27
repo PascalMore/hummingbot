@@ -19,12 +19,12 @@ then
 fi
 echo
 # Ask the user for the name of the new instance
-echo "➡️  Enter a name for your new Hummingbot instance: (default = \"hummingbot-instance\")"
+echo "➡️  Enter a name for your new Hummingbot instance: (default = \"myq_hummingbot-instance\")"
 read INSTANCE_NAME
 if [ "$INSTANCE_NAME" == "" ];
 then
-  INSTANCE_NAME="hummingbot-instance"
-  DEFAULT_FOLDER="hummingbot_files"
+  INSTANCE_NAME="myq_hummingbot-instance"
+  DEFAULT_FOLDER="myq_hummingbot_files"
 else
   DEFAULT_FOLDER="${INSTANCE_NAME}_files"
 fi
@@ -39,7 +39,7 @@ then
   FOLDER=$DEFAULT_FOLDER
 fi
 echo
-echo "Creating your hummingbot instance: \"$INSTANCE_NAME\" (coinalpha/hummingbot:$TAG)"
+echo "Creating your hummingbot instance: \"$INSTANCE_NAME\" (pascalmore/myq_hummingbot:$TAG)"
 echo
 echo "Your files will be saved to:"
 echo "=> instance folder:    $PWD/$FOLDER"
@@ -69,4 +69,5 @@ docker run -it \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_logs,destination=/logs/" \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_data,destination=/data/" \
 --mount "type=bind,source=$(pwd)/$FOLDER/hummingbot_scripts,destination=/scripts/" \
-coinalpha/hummingbot:$TAG
+--restart=always \
+pascalmore/myq_hummingbot:$TAG
