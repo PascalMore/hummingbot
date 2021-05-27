@@ -3,7 +3,7 @@
 # =============================================
 # SCRIPT COMMANDS
 echo
-echo "** 🔄  Update Hummingbot instance **"
+echo "** 🔄  Update MYQ_Hummingbot instance **"
 echo
 echo "🚫  List of running docker instances:"
 docker ps
@@ -33,12 +33,12 @@ CONTINUE="Y"
 while [ "$CONTINUE" == "Y" ]
 do
   # Ask the user for the name of the instance to update
-  echo "➡️  Enter the name of the Hummingbot instance to update: (default = \"hummingbot-instance\")"
+  echo "➡️  Enter the name of the Hummingbot instance to update: (default = \"myq_hummingbot-instance\")"
   read INSTANCE_NAME
   if [ "$INSTANCE_NAME" == "" ];
   then
-    INSTANCE_NAME="hummingbot-instance"
-    DEFAULT_FOLDER="hummingbot_files"
+    INSTANCE_NAME="myq_hummingbot-instance"
+    DEFAULT_FOLDER="myq_hummingbot_files"
   else
     DEFAULT_FOLDER="${INSTANCE_NAME}_files"
   fi
@@ -74,7 +74,7 @@ done
 # =============================================
 # EXECUTE SCRIPT
 echo
-echo "Hummingbot version: coinalpha/hummingbot:$TAG"
+echo "Hummingbot version: pascalmore/myq_hummingbot:$TAG"
 echo "List of instances to be updated:"
 j="0"
 while [ $j -le $i ]
@@ -95,7 +95,7 @@ then
     j=$[$j+1]
   done
   # 2) Delete old image
-  docker image rm coinalpha/hummingbot:$TAG
+  docker image rm pascalmore/myq_hummingbot:$TAG
   # 3) Re-create instances with latest hummingbot release
   j="0"
   while [ $j -le $i ]
@@ -107,7 +107,8 @@ then
     --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_logs,destination=/logs/" \
     --mount "type=bind,source=$(pwd)/${FOLDERs[$j]}/hummingbot_data,destination=/data/" \
     --mount "type=bind,source=$(pwd)/${FOLDERS[$j]}/hummingbot_scripts,destination=/scripts/" \
-    coinalpha/hummingbot:$TAG
+    --restart=always \
+    pascalmore/myq_hummingbot:$TAG
     j=$[$j+1]
   done
   echo
